@@ -1,0 +1,226 @@
+embed {{ tex-preamble
+  \usepackage{bm}
+  \usepackage{mathpartir}
+  \renewcommand{\ottusedrule}[1]{#1 \and}
+  \renewenvironment{ottdefnblock}[3][]
+  { \framebox{ \mbox{#2} } \quad \begin{mathpar}#3 }
+  { \end{mathpar} }
+}}
+
+metavar termvar, x ::=
+metavar modvar, X ::=
+metavar stamp, i ::=
+metavar level, l ::=
+
+grammar
+phase, p :: 'phase_' ::=
+  | v                     ::  :: Value
+  | m                     ::  :: Macro
+
+signature_items, SI :: 'sigi_' ::=
+  | val x : t             ::  :: Value
+      {{ tex \ottkw{val} \, [[x]] \, : \, [[t]] }}
+  | macro x : t           ::  :: Macro
+      {{ tex \ottkw{macro} \, [[x]] \, : \, [[t]] }}
+  | module X : T          ::  :: Module
+      {{ tex \ottkw{module} \, [[X]] \, : \, [[T]] }}
+
+signatures, S :: 'sig_' ::=
+  | SI S                  ::  :: Cons
+  | end                   ::  :: Nil
+
+module_types, T :: 'mtyp_' ::=
+  | sig S                       ::  :: Sig
+  | T -> T'                     ::  :: Functor
+      {{ tex [[T]] \rightarrow [[T']] }}
+
+definition_items, DI :: 'defi_' ::=
+  | val x i = e           ::  :: Value
+      {{ tex \ottkw{val} \, {[[x]]}_{[[i]]} \, = \, [[e]] }}
+  | macro x i = v         ::  :: Macro
+      {{ tex \ottkw{macro} \, {[[x]]}_{[[i]]} \, = \, [[v]] }}
+  | module X i = E        ::  :: Module
+      {{ tex \ottkw{module} \, {[[X]]}_{[[i]]} \, = \, [[E]] }}
+  | DI Z                  :: M:: Subst
+
+definitions, D :: 'def_' ::=
+  | DI D                  ::  :: Cons
+  | end                   ::  :: Nil
+
+module_expressions, E :: 'mexp_' ::=
+  | P                           ::  :: Path
+  | struct D                    ::  :: Struct
+  | functor ( X i : T ) -> E    ::  :: Functor
+      {{ tex \ottkw{functor} \, ( {[[X]]}_{[[i]]} : [[T]] ) \rightarrow [[E]] }}
+  | E1 ( E2 )                   ::  :: Apply
+      {{ tex [[E1]] ( [[E2]] ) }}
+  | E : T                       ::  :: Ascription
+  | ( E )                       :: S:: Paren
+
+paths, P :: 'path_' ::=
+  | X i                         ::  :: Var
+     {{ tex {[[X]]}_{[[i]]} }}
+  | P . X                       ::  :: Proj
+
+types, t :: 'typ_' ::=
+  | unit                        ::  :: Unit
+  | string                      ::  :: String
+  | t1 * t2                     ::  :: Pair
+  | t1 -> t2                    ::  :: Arrow
+  | t code                      ::  :: Code
+
+expressions, e :: 'exp_' ::=
+  | x i                   ::  :: Var
+      {{ tex {[[x]]}_{[[i]]} }}
+  | P . x                 ::  :: Proj
+  | " c* "                ::  :: String
+  | print e               ::  :: Print
+  | ()                    ::  :: Unit
+  | ( e1 , e2 )           ::  :: Pair
+  | fst e                 ::  :: Fst
+  | snd e                 ::  :: Snd
+  | fun x i -> e          ::  :: Lambda
+  | e1 e2                 ::  :: App
+  | << e >>               ::  :: Quote
+  | $ e                   ::  :: Splice
+
+values, v :: 'val_' ::=
+  | x i                   ::  :: Var
+      {{ tex {[[x]]}_{[[i]]} }}
+  | P . x                 ::  :: Proj
+  | n                     ::  :: Int
+  | ( v1 , v2 )           ::  :: Pair
+  | fst v                 ::  :: Fst
+  | snd v                 ::  :: Snd
+  | fun x i -> e          ::  :: Lambda
+  | << e >>               ::  :: Quote
+
+context, G {{ tex \Gamma }} :: 'ctx_' ::=
+  | empty                 ::  :: Empty
+  | G , x i : p t         ::  :: Value
+      {{ tex [[G]] , \, \ottkw{val} \,
+        {[[x]]}_{[[i]]} :_{[[p]]} [[t]] }}
+  | G , X i : T           ::  :: Module
+      {{ tex [[G]] , \, \ottkw{module} \,{[[X]]}_{[[i]]} : [[T]] }}
+  | G , SI                :: M:: SigItem 
+  | G , S                 :: M:: Signature
+
+locations, L :: 'loc_' ::=
+  | empty                 ::  :: Empty
+  | L , l : t             ::  :: Location
+
+formula :: formula_ ::=  
+  | judgement             ::   :: judgement
+
+terminals :: 'terminals_' ::=
+  | |-                    ::  :: turnstile   {{ tex \bm\vdash }}
+  | |-v                   ::  :: turnstile   {{ tex \bm\vdash_v }}
+  | |-m                   ::  :: turnstile   {{ tex \bm\vdash_m }}
+  | |-x                   ::  :: turnstile   {{ tex \bm\vdash_x }}
+  | empty                 ::  :: empty       {{ tex \varepsilon }}
+
+subrules
+  values <:: expressions
+
+defns
+Typing :: '' ::=
+
+  defn
+  |- G :: :: context :: 'ctx_' by
+
+    ---------- :: empty
+     |- empty
+
+     G |- t
+    --------------------- :: value
+     |- G , val x i : t
+
+     G |- t
+    --------------------- :: value
+     |- G , macro x i : t
+
+     G |- T
+    ---------------- :: module
+     |- G , X i : T
+
+  defn
+  G |- t :: :: typ :: 'typ_' by
+
+     |- G
+    ------------- :: string
+     G |- string
+
+     G |- t1
+     G |- t2
+    --------------- :: pair
+     G |- t1 * t2
+
+     G |- t1
+     G |- t2
+    ---------------- :: arrow
+     G |- t1 -> t2
+
+     G |- t
+    ------------- :: code
+     G |- t code
+
+  defn
+  G |- p e :- t :: :: expr :: 'expr_' by
+
+     val x i : t in G
+    --------------- :: var_value
+     G |- v x i :- t
+
+     macro x i : t in G
+    -------------------- :: var_macro
+     G |- m x i :- t
+
+     G |- P :- sig val x i : t end
+    -------------------------------- :: proj_value
+     G |- v P . x :- t
+
+     G |- P :- sig macro x i : t end
+    ---------------------------------- :: proj_macro
+     G |- m P . x :- t
+
+     |- Gk
+    ------------------------- :: string
+     G |-p " c* " :- string
+
+     G |- p e : string
+    ----------------------- :: unit
+     G |- p print e : unit
+
+     |- G
+    ------------------ :: unit
+     G |- p () : unit
+
+     G |- p e1 : t1
+     G |- p e2 : t2
+    ------------------------------ :: pair
+     G |- p ( e1 , e2 ) : t1 * t2
+
+     G |- p e : t1 * t2
+    -------------------- :: fst
+     G |- p fst e : t1
+
+     G |- p e : t1 * t2
+    -------------------- :: snd
+     G |- p snd e : t2
+
+     G, x i : t1 |- p e : t2
+    -------------------------------- :: lambda
+     G |- p fun x i -> e : t1 -> t2
+
+     G |- p e1 : t1 -> t2
+     G |- p e2 : t1
+    ----------------------- :: app
+     G |- p e1 e2 : t2
+
+     G |- v e : t
+    ------------------------- :: quote
+     G |- m << e >> : t code
+
+     G |- m e : t code
+    ------------------ :: splice
+     G |- v $ e : t
